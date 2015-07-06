@@ -106,6 +106,7 @@ t_io_infos *file_infos;    /* input and output files used by the compiler */
    t_list *list;
    t_axe_label *label;
    t_while_statement while_stmt;
+   t_map_statement map_stmt;
 } 
 /*=========================================================================
                                TOKENS 
@@ -122,6 +123,7 @@ t_io_infos *file_infos;    /* input and output files used by the compiler */
 %token RETURN
 %token READ
 %token WRITE
+%token ON AS REDUCE INTO
 
 %token <label> DO
 %token <while_stmt> WHILE
@@ -130,6 +132,7 @@ t_io_infos *file_infos;    /* input and output files used by the compiler */
 %token <intval> TYPE
 %token <svalue> IDENTIFIER
 %token <intval> NUMBER
+%token <map_stmt> MAP
 
 %type <expr> exp
 %type <decl> declaration
@@ -244,6 +247,7 @@ statements  : statements statement       { /* does nothing */ }
 statement   : assign_statement SEMI      { /* does nothing */ }
             | control_statement          { /* does nothing */ }
             | read_write_statement SEMI  { /* does nothing */ }
+            | map_stmt                   { /* does nothing */ }
             | SEMI            { gen_nop_instruction(program); }
 ;
 
@@ -452,6 +456,39 @@ write_statement : WRITE LPAR exp RPAR
                /* write to standard output an integer value */
                gen_write_instruction (program, location);
             }
+;
+
+map_stmt : MAP IDENTIFIER ON IDENTIFIER AS {
+    t_axe_variable *array = getVariable(program, $4);
+    t_axe_variable *item = getVariable(program, $2);
+    if (array == NULL || item == NULL) 
+        notifyError(AXE_UNKNOWN_VARIABLE);
+    
+    if (!array->isArray || item->isArray)
+        notifyError(AXE_INVALID_VARIABLE);
+
+    int len_r = getNewRegister(program);
+    gen_addi_instruction(program, len_r, REG_0, array->arraySize);
+
+    int array_r = getNewRegister(program);
+    gen_mova_instruction(program, array_r, array->labelID, 0);
+
+    int item_r = get_symbol_location(program, $2, 0);
+    t_axe_label *label = assignNewLabel(program);
+    gen_add_instruction(program, item_r, REG_0, array_r, CG_INDIRECT_SOURCE);
+
+    t_map_statement map = { label, len_r, array_r, item_r };
+    $MAP = map;
+         
+} code_block {
+    gen_add_instruction(program, $MAP.array_r, REG_0, $MAP.item_r, CG_INDIRECT_DEST);
+    gen_addi_instruction(program, $MAP.array_r, $MAP.array_r, 1);
+    gen_subi_instruction(program, $MAP.len_r, $MAP.len_r, 1);
+    gen_bne_instruction(program, $MAP.label, 0);
+
+    free($2);
+    free($4);
+}
 ;
 
 exp: NUMBER      { $$ = create_expression ($1, IMMEDIATE); }

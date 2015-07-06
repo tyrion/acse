@@ -1,0 +1,12 @@
+int vett[2];
+int elem, t, sum;
+
+vett[0] = 1;
+vett[1] = 2;
+
+map elem on vett as {
+    elem = elem * elem;
+}
+
+write(vett[0]);
+write(vett[1]);
