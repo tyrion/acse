@@ -122,6 +122,7 @@ t_io_infos *file_infos;    /* input and output files used by the compiler */
 %token RETURN
 %token READ
 %token WRITE
+%token DEFINE
 
 %token <label> DO
 %token <while_stmt> WHILE
@@ -164,7 +165,7 @@ t_io_infos *file_infos;    /* input and output files used by the compiler */
       2. A list of instructions. (at least one instruction!).
  * When the rule associated with the non-terminal `program' is executed,
  * the parser notify it to the `program' singleton instance. */
-program  : var_declarations statements
+program  : macros var_declarations statements
          {
             /* Notify the end of the program. Once called
              * the function `set_end_Program' - if necessary -
@@ -175,6 +176,16 @@ program  : var_declarations statements
             /* return from yyparse() */
             YYACCEPT;
          }
+;
+
+macros : macros macro   { /* does nothing */ }
+       | /* empty*/     { /* does nothing */ }
+;
+
+macro :  DEFINE IDENTIFIER NUMBER
+      {
+        set_macro(program, $2, $3);
+      }
 ;
 
 var_declarations : var_declarations var_declaration   { /* does nothing */ }

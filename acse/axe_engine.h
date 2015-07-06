@@ -17,6 +17,7 @@
 
 typedef struct t_program_infos
 {
+  t_list *macros;
   t_list *variables;
   t_list *instructions;
   t_list *data;
@@ -70,5 +71,8 @@ extern void finalizeProgramInfos(t_program_infos *program);
 
 /* write the corresponding assembly for the given program */
 extern void writeAssembly(t_program_infos *program, char *output_file);
+
+extern void set_macro(t_program_infos *program, char *ID, int value);
+extern t_axe_macro *get_macro(t_program_infos *program, char *ID);
 
 #endif

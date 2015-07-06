@@ -22,6 +22,12 @@
 #  define _AXE_FREE_FUNCTION free
 #endif
 
+typedef struct t_axe_macro
+{
+    char *ID;
+    int value;
+} t_axe_macro;
+
 typedef struct t_axe_label
 {
    int labelID;      /* label identifier */

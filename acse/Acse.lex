@@ -17,6 +17,7 @@
 
 #include <string.h>
 #include "axe_struct.h"
+#include "axe_engine.h"
 #include "collections.h"
 #include "Acse.tab.h"
 #include "axe_constants.h"
@@ -24,6 +25,7 @@
 /* Variables declared in the lexer for error tracking */
 extern int line_num;
 extern int num_error;
+extern t_program_infos *program;
 
 /* extern declaration of function yyerror */
 extern int yyerror(const char* errmsg);
@@ -98,8 +100,18 @@ ID       [a-zA-Z_][a-zA-Z0-9_]*
 "return"          { return RETURN; }
 "read"            { return READ; }
 "write"           { return WRITE; }
+"define"          { return DEFINE; }
 
-{ID}              { yylval.svalue=strdup(yytext); return IDENTIFIER; }
+{ID}              {
+                    t_axe_macro *macro = get_macro(program, yytext);
+                    if (macro == NULL) {
+                        yylval.svalue=strdup(yytext);
+                        return IDENTIFIER;
+                    } else {
+                        yylval.intval = macro->value;
+                        return NUMBER;
+                    }
+                  }
 {DIGIT}+          { yylval.intval = atoi( yytext );
                     return(NUMBER); }
 

@@ -475,6 +475,7 @@ t_program_infos * allocProgramInfos()
       notifyError(AXE_OUT_OF_MEMORY);
 
    /* initialize the new instance of `result' */
+   result->macros = NULL;
    result->variables = NULL;
    result->instructions = NULL;
    result->data = NULL;
@@ -901,4 +902,23 @@ void finalizeVariables(t_list *variables)
 
    /* free the list of variables */
    freeList(variables);
+}
+
+
+void set_macro(t_program_infos *program, char *ID, int value) {
+    t_axe_macro *macro = malloc(sizeof(t_axe_macro));
+    macro->ID = ID;
+    macro->value = value;
+
+    program->macros = addFirst(program->macros, macro);
+}
+
+int _compare_macros(void *macro, void *ID) {
+    return strcmp(((t_axe_macro *)macro)->ID, (char *)ID) == 0;
+}
+
+t_axe_macro *get_macro(t_program_infos *program, char *ID) {
+    t_list *node = CustomfindElement(program->macros, ID, _compare_macros);
+    if (node != NULL)
+        return (t_axe_macro *) LDATA(node);
 }
