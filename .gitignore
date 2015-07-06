@@ -5,3 +5,6 @@
 *.asm
 *.cfg
 *.out
+output.o
+mace/*.o
+bin/
