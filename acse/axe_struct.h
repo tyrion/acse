@@ -123,6 +123,12 @@ typedef struct t_map_statement
 
 } t_map_statement;
 
+typedef struct t_reduce_statement
+{
+    t_axe_label *init_label;
+    t_axe_label *exp_label;
+} t_reduce_statement;
+
 /* create a label */
 extern t_axe_label * alloc_label(int value);
 

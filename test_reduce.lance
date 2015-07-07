@@ -1,0 +1,13 @@
+int vett[3];
+int elem;
+int sum = 0;
+
+vett[0] = 0;
+vett[1] = 1;
+vett[2] = 2;
+
+reduce elem into sum
+  as [[ sum + elem ]]
+  on vett;
+
+write(sum);

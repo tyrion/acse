@@ -107,13 +107,14 @@ t_io_infos *file_infos;    /* input and output files used by the compiler */
    t_axe_label *label;
    t_while_statement while_stmt;
    t_map_statement map_stmt;
+   t_reduce_statement reduce_stmt;
 } 
 /*=========================================================================
                                TOKENS 
 =========================================================================*/
 %start program
 
-%token LBRACE RBRACE LPAR RPAR LSQUARE RSQUARE
+%token LBRACE RBRACE LPAR RPAR LSQUARE RSQUARE DLSQUARE DRSQUARE
 %token SEMI COLON PLUS MINUS MUL_OP DIV_OP MOD_OP
 %token AND_OP OR_OP NOT_OP
 %token ASSIGN LT GT SHL_OP SHR_OP EQ NOTEQ LTEQ GTEQ
@@ -123,7 +124,7 @@ t_io_infos *file_infos;    /* input and output files used by the compiler */
 %token RETURN
 %token READ
 %token WRITE
-%token ON AS REDUCE INTO
+%token ON AS INTO
 
 %token <label> DO
 %token <while_stmt> WHILE
@@ -133,6 +134,7 @@ t_io_infos *file_infos;    /* input and output files used by the compiler */
 %token <svalue> IDENTIFIER
 %token <intval> NUMBER
 %token <map_stmt> MAP
+%token <reduce_stmt> REDUCE
 
 %type <expr> exp
 %type <decl> declaration
@@ -248,6 +250,7 @@ statement   : assign_statement SEMI      { /* does nothing */ }
             | control_statement          { /* does nothing */ }
             | read_write_statement SEMI  { /* does nothing */ }
             | map_stmt                   { /* does nothing */ }
+            | reduce_stmt SEMI           { /* does nothing */ }
             | SEMI            { gen_nop_instruction(program); }
 ;
 
@@ -488,6 +491,82 @@ map_stmt : MAP IDENTIFIER ON IDENTIFIER AS {
 
     free($2);
     free($4);
+}
+;
+
+reduce_stmt : REDUCE IDENTIFIER[item] INTO IDENTIFIER[acc]
+{    
+    t_reduce_statement reduce;
+
+    reduce.init_label = newLabel(program);
+    gen_bt_instruction(program, reduce.init_label, 0);
+
+    reduce.exp_label = assignNewLabel(program);
+    $REDUCE = reduce;
+}
+AS DLSQUARE exp DRSQUARE ON IDENTIFIER[array]
+{
+
+    t_axe_variable *acc = getVariable(program, $acc);
+    t_axe_variable *array = getVariable(program, $array);
+    t_axe_variable *item = getVariable(program, $item);
+
+    /* some sanity checks */
+    if (array == NULL || item == NULL || acc == NULL) 
+        notifyError(AXE_UNKNOWN_VARIABLE);
+    
+    if (!array->isArray || item->isArray || acc->isArray)
+        notifyError(AXE_INVALID_VARIABLE);
+
+    /* After exp is executed assign acc and jump to end of loop */
+    int acc_r;
+    if ($exp.expression_type == IMMEDIATE) {
+        acc_r = getNewRegister(program);
+        gen_addi_instruction(program, acc_r, REG_0, $exp.value);
+    } else {
+        acc_r = $exp.value;
+    }
+    gen_store_instruction(program, acc_r, acc->labelID, 0);
+    t_axe_label *end_label = newLabel(program);
+    gen_bt_instruction(program, end_label, 0);
+
+    /**** INITIALIZATION CODE ****/
+    assignLabel(program, $REDUCE.init_label);
+
+
+
+    /* This is our counter. When it reaches 0 the loop is over. */
+    int counter = getNewRegister(program);
+    gen_addi_instruction(program, counter, REG_0, array->arraySize);
+
+    /* This is the address of the current item. */
+    int curr_addr = getNewRegister(program);
+    gen_mova_instruction(program, curr_addr, array->labelID, 0);
+
+    /**** START OF THE LOOP ****/
+
+    int curr_item = get_symbol_location(program, $acc, 0);
+    t_axe_label *body_label = assignNewLabel(program);
+    /* We store in curr_item the current item of the loop */
+    gen_add_instruction(program, curr_item, REG_0, curr_addr, CG_INDIRECT_SOURCE);
+
+    /* Jump to the beginning of the exp (user code) */
+    gen_bt_instruction(program, $REDUCE.exp_label, 0);
+
+    /* After exp is executed we jump back here, to check if have to do an other
+       iteration. */
+    assignLabel(program, end_label);
+
+    /* Store the value of curr_item back on curr_addr */
+    gen_add_instruction(program, curr_addr, REG_0, curr_item, CG_INDIRECT_DEST);
+    /* Increment curr_addr by one */
+    gen_addi_instruction(program, curr_addr, curr_addr, 1);
+    /* Decrement the counter by one */
+    gen_subi_instruction(program, counter, counter, 1);
+    /* Jump if the counter is greater than zero */
+    gen_bne_instruction(program, body_label, 0);
+
+
 }
 ;
 
